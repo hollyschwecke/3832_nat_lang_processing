@@ -1,38 +1,41 @@
-from transformers import pipeline, DistilBertTokenizer, DistilBertForSequenceClassification
-from datasets import load_dataset
-from sklearn.metrics import accuracy_score, classification_report
-import random
+import nltk
+import sentencepiece as spm 
 
-# load imdb dataset
-dataset = load_dataset('imdb')
-test_data = dataset['test']
+# download necessary nltk resources
+nltk.download("all")
 
-# sample 5000 reviews for faster testing
-sample_size = 5000
-indices = random.sample(range(len(test_data)), sample_size)
-test_texts = [test_data[i]['text'] for i in indices]
-true_labels = ['POSITIVE' if test_data[i]['label'] == 1 else 'NEGATIVE' for i in indices]
+with open("DorianGray.txt", 'r', encoding="utf-8") as file:
+    text = file.read()
+    
+# part a: tokenize using nltk.word_tokenize
+tokens_nltk = nltk.word_tokenize(text)
+print("a) Number of unique tokens:", len(tokens_nltk))
 
-# load pre-trained DistilBERT model and tokenizer
-model_name = "distilbert-base-uncased-finetuned-sst-2-english"
-tokenizer = DistilBertTokenizer.from_pretrained(model_name)
-model = DistilBertForSequenceClassification.from_pretrained(model_name)
-sentiment_pipeline = pipeline(
-    "sentiment-analysis",
-    model=model,
-    tokenizer=tokenizer,
-    truncation=True,
-    max_length=512,
-    )
+# b) Unique tokens using set
+unique_tokens_nltk = set(tokens_nltk)
+print("b) Number of unique tokens (NLTK):", len(unique_tokens_nltk))
 
-# run inference on the sampled texts
-print("Running inference...")
-predictions = [res['label'] for res in sentiment_pipeline(test_texts, batch_size=32)]
+# Part (c) & (d): Train and use SentencePiece for BPE
+# Only train once; comment this block if model already exists
+spm.SentencePieceTrainer.train(
+    input="DorianGray.txt",
+    model_prefix="bpe",
+    vocab_size=2000,
+    model_type="bpe",
+    user_defined_symbols=["<eos>"]
+)
 
-# evaluate the results
-accuracy = accuracy_score(true_labels, predictions)
-report = classification_report(true_labels, predictions)
+# Load the trained SentencePiece model
+sp = spm.SentencePieceProcessor()
+sp.load("bpe.model")
 
-print(f'Accuracy: {accuracy:.4f}\n')
-print('Classification Report:\n')
-print(report)
+# Encode the original text using BPE
+bpe_tokens = sp.encode(text, out_type=str)
+
+# c) Total BPE tokens (non-unique)
+print("c) Total number of BPE tokens:", len(bpe_tokens))
+
+# d) Unique BPE tokens used
+unique_bpe_tokens = set(bpe_tokens)
+print("d) Number of unique BPE tokens used:", len(unique_bpe_tokens))
+print("Decoded Text:", decoded_text)
